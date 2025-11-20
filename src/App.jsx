@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle, Clock, FileText, AlertCircle, Briefcase, Building, 
-  Filter, PieChart, Sparkles, X, Loader2, Mail, Copy, Check, Plus, Save, Pencil, Layers, Trash2, Database
+  Filter, PieChart, Sparkles, X, Loader2, Mail, Copy, Check, Plus, Save, Pencil, Layers, Trash2, Database, RefreshCw
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch 
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs 
 } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
 // --- Configuration ---
 const apiKey = "AIzaSyDRVla9f593dBhdLLSZhhv1v7V7DeejUuE"; 
 
-// --- Firebase Setup ---
 // --- Firebase Setup ---
 // انسخ هذه البيانات من: Project Settings -> General -> Your apps -> SDK setup/configuration
 const firebaseConfig = {
@@ -25,12 +24,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const appId = "my-dashboard-app"; // يمكنك وضع أي اسم تريده هنا
+const appId = "cmdec-regi"; // يمكنك وضع أي اسم تريده هنا
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- Initial Data for Seeding ---
+// --- Initial Data for Seeding (بيانات الملف المرفق) ---
 const SEED_DATA = [
+    // Office Records
     { platform: 'سابك (SABIC)', status: 'مسجل', type: 'complete', category: 'office' },
     { platform: 'لوبرف (Luberef)', status: 'مسجل', type: 'complete', category: 'office' },
     { platform: 'هاليبورتون (Halliburton)', status: 'مسجل', type: 'complete', category: 'office' },
@@ -50,6 +50,8 @@ const SEED_DATA = [
     { platform: 'الهيئة الملكية للجبيل وينبع', status: 'مسجلة', type: 'complete', category: 'office' },
     { platform: 'بوابة الدرعية', status: 'غير محدد', type: 'unknown', category: 'office' },
     { platform: 'بوابة القدية', status: 'غير محدد', type: 'unknown', category: 'office' },
+    
+    // Company Records
     { platform: 'سامرف (SAMREF)', status: 'مسجلة', type: 'complete', category: 'company' },
     { platform: 'لوبرف (Luberef)', status: 'مسجلة', type: 'complete', category: 'company' },
     { platform: 'بترو رابغ', status: 'مسجلة', type: 'complete', category: 'company' },
@@ -58,6 +60,8 @@ const SEED_DATA = [
     { platform: 'الشركة السعودية للكهرباء', status: 'تم اضافة الأوراق وباقي ورقة الملاك', type: 'in_progress', category: 'company' },
     { platform: 'ياسرف (Yasref)', status: 'تم التقديم', type: 'pending', category: 'company' },
     { platform: 'وزارة الطاقة', status: 'تم تقديم الاوراق', type: 'pending', category: 'company' },
+    
+    // Sinoma Records
     { platform: 'شركة المياه', status: 'قيد التسجيل', type: 'in_progress', category: 'sinoma' },
 ];
 
@@ -360,30 +364,48 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Data Fetching & Seeding
+  // 2. Seeding Logic (Runs only once when user connects to verify empty DB)
+  useEffect(() => {
+    const seedDatabase = async () => {
+      if (!user) return;
+      
+      const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
+      
+      try {
+        // Check if empty using getDocs (single fetch)
+        const snapshot = await getDocs(collectionRef);
+        
+        if (snapshot.empty) {
+          console.log("Database is empty. Seeding initial data...");
+          const batch = writeBatch(db);
+          
+          SEED_DATA.forEach(item => {
+            const docRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'));
+            batch.set(docRef, { ...item, createdAt: new Date().toISOString() });
+          });
+          
+          await batch.commit();
+          console.log("Database seeded successfully!");
+        }
+      } catch (error) {
+        console.error("Error checking/seeding database:", error);
+      }
+    };
+
+    seedDatabase();
+  }, [user]); // Run once when user authenticates
+
+  // 3. Real-time Data Listener
   useEffect(() => {
     if (!user) return;
 
     const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
-    const q = query(collectionRef); // Simple query as per rules
+    const q = query(collectionRef); // You can add orderBy here if needed
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-        if (snapshot.empty && !snapshot.metadata.hasPendingWrites) {
-            // Seed Data ONLY if empty and not currently writing
-            // Check one more time to be safe (avoid infinite loops in some edge cases)
-            // For this demo, we'll seed only if absolutely 0 docs
-            const batch = writeBatch(db);
-            SEED_DATA.forEach(item => {
-                const docRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'));
-                batch.set(docRef, { ...item, createdAt: new Date().toISOString() });
-            });
-            await batch.commit();
-            console.log("Database seeded with initial data");
-        } else {
-            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setTransactions(items);
-            setIsLoadingData(false);
-        }
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTransactions(items);
+        setIsLoadingData(false);
     }, (error) => {
         console.error("Error fetching transactions:", error);
         setIsLoadingData(false);
@@ -393,12 +415,9 @@ export default function Dashboard() {
   }, [user]);
 
   // --- Processing Data for View ---
-  // Group flat transactions list into categories
   const groupedData = React.useMemo(() => {
       const groups = {};
-      // Ensure we have at least the default categories initialized
       Object.keys(CATEGORY_LABELS).forEach(key => groups[key] = []);
-      
       transactions.forEach(item => {
           const cat = item.category || 'office';
           if (!groups[cat]) groups[cat] = [];
@@ -414,16 +433,8 @@ export default function Dashboard() {
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   // --- Handlers ---
-
-  const handleOpenAdd = () => {
-    setEditingItem(null);
-    setIsTransModalOpen(true);
-  };
-
-  const handleOpenEdit = (item, category) => {
-    setEditingItem({ ...item, category });
-    setIsTransModalOpen(true);
-  };
+  const handleOpenAdd = () => { setEditingItem(null); setIsTransModalOpen(true); };
+  const handleOpenEdit = (item, category) => { setEditingItem({ ...item, category }); setIsTransModalOpen(true); };
 
   const handleDeleteTransaction = async (id) => {
     if (!user) return;
@@ -431,76 +442,34 @@ export default function Dashboard() {
         setIsSaving(true);
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', id));
         setIsTransModalOpen(false);
-    } catch (e) {
-        console.error(e);
-        alert("حدث خطأ أثناء الحذف");
-    } finally {
-        setIsSaving(false);
-    }
+    } catch (e) { console.error(e); alert("حدث خطأ أثناء الحذف"); } finally { setIsSaving(false); }
   };
 
   const handleSaveTransaction = async (formData) => {
     if (!user) return;
     const { id, ...itemData } = formData;
-    
     try {
         setIsSaving(true);
         if (id) {
-            // Update
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', id), itemData);
         } else {
-            // Add
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), {
-                ...itemData,
-                createdAt: new Date().toISOString()
-            });
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), { ...itemData, createdAt: new Date().toISOString() });
         }
         setIsTransModalOpen(false);
-    } catch (e) {
-        console.error(e);
-        alert("حدث خطأ أثناء الحفظ");
-    } finally {
-        setIsSaving(false);
-    }
+    } catch (e) { console.error(e); alert("حدث خطأ أثناء الحفظ"); } finally { setIsSaving(false); }
   };
 
   const handleGlobalAnalysis = async () => {
-    setModalTitle("تحليل تنفيذي شامل");
-    setModalContent("");
-    setModalOpen(true);
-    setIsAiLoading(true);
-
-    const summaryData = {
-      stats: { total, completed, pending, completionRate },
-      pendingItems: transactions.filter(i => i.type !== 'complete').map(i => `${i.platform}: ${i.status}`)
-    };
-
-    const prompt = `
-      أنت مساعد إداري ذكي. قم بتحليل بيانات تسجيل المنصات التالية واكتب ملخصاً تنفيذياً باللغة العربية للمدير العام.
-      البيانات: ${JSON.stringify(summaryData)}
-      المطلوب في الملخص: 1. نظرة عامة على مستوى الإنجاز. 2. أهم المعوقات. 3. توصيات.
-    `;
-
-    const result = await generateContent(prompt);
-    setModalContent(result);
-    setIsAiLoading(false);
+    setModalTitle("تحليل تنفيذي شامل"); setModalContent(""); setModalOpen(true); setIsAiLoading(true);
+    const summaryData = { stats: { total, completed, pending, completionRate }, pendingItems: transactions.filter(i => i.type !== 'complete').map(i => `${i.platform}: ${i.status}`) };
+    const prompt = `أنت مساعد إداري ذكي. قم بتحليل بيانات تسجيل المنصات التالية واكتب ملخصاً تنفيذياً باللغة العربية للمدير العام.\nالبيانات: ${JSON.stringify(summaryData)}\nالمطلوب في الملخص: 1. نظرة عامة على مستوى الإنجاز. 2. أهم المعوقات. 3. توصيات.`;
+    const result = await generateContent(prompt); setModalContent(result); setIsAiLoading(false);
   };
 
   const handleDraftEmail = async (item) => {
-    setModalTitle(`مسودة بريد متابعة - ${item.platform}`);
-    setModalContent("");
-    setModalOpen(true);
-    setIsAiLoading(true);
-
-    const prompt = `
-      قم بصياغة بريد إلكتروني رسمي لمتابعة حالة التسجيل في منصة "${item.platform}".
-      الحالة الحالية: "${item.status}".
-      الموضوع: استفسار بخصوص حالة تسجيل المورد.
-    `;
-
-    const result = await generateContent(prompt);
-    setModalContent(result);
-    setIsAiLoading(false);
+    setModalTitle(`مسودة بريد متابعة - ${item.platform}`); setModalContent(""); setModalOpen(true); setIsAiLoading(true);
+    const prompt = `قم بصياغة بريد إلكتروني رسمي لمتابعة حالة التسجيل في منصة "${item.platform}".\nالحالة الحالية: "${item.status}".\nالموضوع: استفسار بخصوص حالة تسجيل المورد.`;
+    const result = await generateContent(prompt); setModalContent(result); setIsAiLoading(false);
   };
 
   if (isLoadingData) {
@@ -510,24 +479,17 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans" dir="rtl">
       <div className="max-w-5xl mx-auto">
-        
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-2">
                 لوحة متابعة تسجيل المنصات
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-full flex items-center gap-1 border border-emerald-200">
-                    <Database className="w-3 h-3" /> متصل بقاعدة البيانات
-                </span>
+                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-full flex items-center gap-1 border border-emerald-200"><Database className="w-3 h-3" /> متصل بقاعدة البيانات</span>
             </h1>
             <p className="text-slate-500">نظرة عامة على حالة تسجيل الموردين للمكتب والشركة</p>
           </div>
           <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={handleOpenAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-slate-700 transition-all">
-                <Plus className="w-5 h-5" /><span className="font-bold">إضافة معاملة</span>
-            </button>
-            <button onClick={handleGlobalAnalysis} className="flex-1 md:flex-none group flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-5 py-3 rounded-xl shadow-lg hover:shadow-indigo-200 transition-all hover:-translate-y-0.5">
-                <Sparkles className="w-5 h-5 text-yellow-300 group-hover:animate-spin-slow" /><span className="font-bold">تحليل ذكي</span>
-            </button>
+            <button onClick={handleOpenAdd} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-slate-700 transition-all"><Plus className="w-5 h-5" /><span className="font-bold">إضافة معاملة</span></button>
+            <button onClick={handleGlobalAnalysis} className="flex-1 md:flex-none group flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-5 py-3 rounded-xl shadow-lg hover:shadow-indigo-200 transition-all hover:-translate-y-0.5"><Sparkles className="w-5 h-5 text-yellow-300 group-hover:animate-spin-slow" /><span className="font-bold">تحليل ذكي</span></button>
           </div>
         </div>
 
@@ -568,17 +530,3 @@ export default function Dashboard() {
             ))}
         </div>
       </div>
-
-      <TransactionModal 
-        isOpen={isTransModalOpen}
-        onClose={() => setIsTransModalOpen(false)}
-        onSave={handleSaveTransaction}
-        onDelete={handleDeleteTransaction}
-        initialData={editingItem}
-        categories={allCategories}
-        isSaving={isSaving}
-      />
-      <AIModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle} content={modalContent} isLoading={isAiLoading} />
-    </div>
-  );
-}
