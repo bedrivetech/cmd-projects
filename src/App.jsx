@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircle, Clock, FileText, AlertCircle, Briefcase, Building, 
-  Filter, PieChart, Sparkles, X, Loader2, Mail, Copy, Check, Plus, Save, Pencil, Layers, Trash2, Database, RefreshCw
-} from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs 
-} from 'firebase/firestore';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-
 // --- Configuration ---
+// للحصول على مفتاح Gemini API للنشر: https://aistudio.google.com/app/apikey
+// في بيئة Vercel/Netlify يفضل استخدام: process.env.REACT_APP_GEMINI_API_KEY
 const apiKey = "AIzaSyDRVla9f593dBhdLLSZhhv1v7V7DeejUuE"; 
 
 // --- Firebase Setup ---
-// انسخ هذه البيانات من: Project Settings -> General -> Your apps -> SDK setup/configuration
-const firebaseConfig = {
+
+// ⚠️ هام: قم باستبدال البيانات التالية ببيانات مشروعك من Firebase Console
+// (Project Settings -> General -> Your apps -> SDK setup/configuration)
+const YOUR_FIREBASE_CONFIG = {
   apiKey: "AIzaSyAz7JADQ0I-GS_Yq9AhCoAQgK_Vo6a9L4c",
   authDomain: "cmdec-reg.firebaseapp.com",
   projectId: "cmdec-reg",
@@ -23,8 +16,18 @@ const firebaseConfig = {
   appId: "1:875783460810:web:f31056c9c70ad219d3a133"
 };
 
+// المنطق الذكي لاختيار الإعدادات:
+// 1. إذا كنا في بيئة المعاينة الحالية، نستخدم الإعدادات التلقائية (__firebase_config).
+// 2. إذا قمت بنشر الكود، سيستخدم الإعدادات التي أدخلتها أنت في (YOUR_FIREBASE_CONFIG).
+const firebaseConfig = typeof __firebase_config !== 'undefined' 
+  ? JSON.parse(__firebase_config) 
+  : YOUR_FIREBASE_CONFIG;
+
+// تحديد اسم التطبيق (للفصل بين البيانات في حالة الاستخدام المشترك)
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'my-dashboard-app';
+
 const app = initializeApp(firebaseConfig);
-const appId = "cmdec-regi"; // يمكنك وضع أي اسم تريده هنا
+const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- Initial Data for Seeding (بيانات الملف المرفق) ---
@@ -76,6 +79,7 @@ const getCategoryLabel = (key) => CATEGORY_LABELS[key] || key;
 // --- AI Helper Function ---
 async function generateContent(prompt) {
   try {
+    // ملاحظة: تأكد من إضافة مفتاح API الخاص بك في المتغير apiKey أعلاه
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
       {
@@ -368,6 +372,8 @@ export default function Dashboard() {
     const seedDatabase = async () => {
       if (!user) return;
       
+      // Using a consistent path regardless of user to allow shared data for this demo,
+      // but in production with your own firebase, you might want 'users/{uid}/transactions'
       const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
       
       try {
