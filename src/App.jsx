@@ -13,11 +13,21 @@ import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken }
 const apiKey = "AIzaSyDRVla9f593dBhdLLSZhhv1v7V7DeejUuE"; 
 
 // --- Firebase Setup ---
-const firebaseConfig = JSON.parse(__firebase_config);
+// --- Firebase Setup ---
+// انسخ هذه البيانات من: Project Settings -> General -> Your apps -> SDK setup/configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAz7JADQ0I-GS_Yq9AhCoAQgK_Vo6a9L4c",
+  authDomain: "cmdec-reg.firebaseapp.com",
+  projectId: "cmdec-reg",
+  storageBucket: "cmdec-reg.firebasestorage.app",
+  messagingSenderId: "875783460810",
+  appId: "1:875783460810:web:f31056c9c70ad219d3a133"
+};
+
 const app = initializeApp(firebaseConfig);
+const appId = "my-dashboard-app"; // يمكنك وضع أي اسم تريده هنا
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- Initial Data for Seeding ---
 const SEED_DATA = [
