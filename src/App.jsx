@@ -10,7 +10,7 @@ import {
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
 // --- Configuration ---
-const apiKey = ""; 
+const apiKey = "AIzaSyDRVla9f593dBhdLLSZhhv1v7V7DeejUuE"; 
 
 // --- Firebase Setup ---
 const firebaseConfig = JSON.parse(__firebase_config);
