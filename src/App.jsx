@@ -530,3 +530,9 @@ export default function Dashboard() {
             ))}
         </div>
       </div>
+
+      <TransactionModal isOpen={isTransModalOpen} onClose={() => setIsTransModalOpen(false)} onSave={handleSaveTransaction} onDelete={handleDeleteTransaction} initialData={editingItem} categories={allCategories} isSaving={isSaving} />
+      <AIModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle} content={modalContent} isLoading={isAiLoading} />
+    </div>
+  );
+}
