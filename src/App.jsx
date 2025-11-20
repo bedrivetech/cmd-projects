@@ -25,7 +25,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const appId = "cmdec-regi"; // يمكنك وضع أي اسم تريده هنا
-const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- Initial Data for Seeding (بيانات الملف المرفق) ---
