@@ -1,3 +1,14 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  CheckCircle, Clock, FileText, AlertCircle, Briefcase, Building, 
+  Filter, PieChart, Sparkles, X, Loader2, Mail, Copy, Check, Plus, Save, Pencil, Layers, Trash2, Database, RefreshCw
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs 
+} from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+
 // --- Configuration ---
 // للحصول على مفتاح Gemini API للنشر: https://aistudio.google.com/app/apikey
 // في بيئة Vercel/Netlify يفضل استخدام: process.env.REACT_APP_GEMINI_API_KEY
