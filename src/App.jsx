@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
+
 // --- Configuration ---
 // للحصول على مفتاح Gemini API للنشر: https://aistudio.google.com/app/apikey
 // في بيئة Vercel/Netlify يفضل استخدام: process.env.REACT_APP_GEMINI_API_KEY
@@ -41,7 +42,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- Initial Data for Seeding (بيانات الملف المرفق) ---
+// --- Initial Data for Seeding (البيانات التي ستضاف تلقائياً) ---
 const SEED_DATA = [
     // Office Records
     { platform: 'سابك (SABIC)', status: 'مسجل', type: 'complete', category: 'office' },
@@ -90,7 +91,6 @@ const getCategoryLabel = (key) => CATEGORY_LABELS[key] || key;
 // --- AI Helper Function ---
 async function generateContent(prompt) {
   try {
-    // ملاحظة: تأكد من إضافة مفتاح API الخاص بك في المتغير apiKey أعلاه
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
       {
@@ -383,8 +383,6 @@ export default function Dashboard() {
     const seedDatabase = async () => {
       if (!user) return;
       
-      // Using a consistent path regardless of user to allow shared data for this demo,
-      // but in production with your own firebase, you might want 'users/{uid}/transactions'
       const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
       
       try {
@@ -409,14 +407,14 @@ export default function Dashboard() {
     };
 
     seedDatabase();
-  }, [user]); // Run once when user authenticates
+  }, [user]);
 
   // 3. Real-time Data Listener
   useEffect(() => {
     if (!user) return;
 
     const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
-    const q = query(collectionRef); // You can add orderBy here if needed
+    const q = query(collectionRef); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
